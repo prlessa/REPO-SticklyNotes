@@ -223,13 +223,17 @@ export default function StickyNotesApp() {
   const [initialChoice, setInitialChoice] = useState('');
   const [showMainMyPanels, setShowMainMyPanels] = useState(false);
 
-  const pollingInterval = useRef(null);
-  useEffect(() => {
+const pollingInterval = useRef(null);
+
+// Inicializar dados do usuário
+useEffect(() => {
   const savedName = localStorage.getItem('stickyNotesUserName');
   if (savedName) {
     setUserName(savedName);
     setInitialUserName(savedName);
     setUserNameSet(true);
+  } else {
+    setUserNameSet(false);
   }
 }, []);
 
@@ -430,53 +434,67 @@ export default function StickyNotesApp() {
   };
 
   // Tela inicial - Nova estrutura com "Meus Murais" no topo
-  if (!userNameSet) {
-return (
-  <div className={`min-h-screen ${GRADIENTS.main}`} style={{ backgroundColor: MAIN_COLORS.background }}>
-    <div className="flex items-center justify-center min-h-screen p-4">
-      <div className="bg-white rounded-3xl shadow-2xl p-10 max-w-md w-full border border-gray-100">
-        <div className="flex items-center justify-center mb-8">
-          <StickyNote className="w-12 h-12 text-slate-600 mr-3" />
-          <h1 className="text-4xl font-bold text-gray-800">
-            Bem-vindo!
-          </h1>
-        </div>
-        <p className="text-center text-gray-600 mb-8 text-lg">
-          Como você gostaria de ser chamado?
-        </p>
-
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-4 text-sm">
-            {error}
+if (!userNameSet) {
+  return (
+    <div className={`min-h-screen ${GRADIENTS.main}`} style={{ backgroundColor: MAIN_COLORS.background }}>
+      <div className="flex items-center justify-center min-h-screen p-4">
+        <div className="bg-white rounded-3xl shadow-2xl p-10 max-w-md w-full border border-gray-100">
+          <div className="flex items-center justify-center mb-8">
+            <StickyNote className="w-12 h-12 text-slate-600 mr-3" />
+            <h1 className="text-4xl font-bold text-gray-800">
+              Bem-vindo!
+            </h1>
           </div>
-        )}
+          <p className="text-center text-gray-600 mb-8 text-lg">
+            Como você gostaria de ser chamado?
+          </p>
 
-        <div className="space-y-5">
-          <div>
-            <input
-              type="text"
-              placeholder="Digite seu nome..."
-              value={initialUserName}
-              onChange={(e) => setInitialUserName(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition-all text-center text-lg"
-              onKeyPress={(e) => e.key === 'Enter' && saveUserName()}
-              autoFocus
-            />
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-4 text-sm">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-5">
+            <div>
+              <input
+                type="text"
+                placeholder="Digite seu nome..."
+                value={initialUserName}
+                onChange={(e) => setInitialUserName(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition-all text-center text-lg"
+                onKeyPress={(e) => e.key === 'Enter' && saveUserName()}
+                autoFocus
+              />
+            </div>
+
+            <button
+              onClick={saveUserName}
+              className="w-full py-3 rounded-xl font-semibold transition-all duration-200 transform hover:scale-[1.02] bg-gradient-to-r from-slate-600 to-gray-700 text-white hover:from-slate-700 hover:to-gray-800"
+            >
+              Continuar
+            </button>
           </div>
-
-          <button
-            onClick={saveUserName}
-            className="w-full py-3 rounded-xl font-semibold transition-all duration-200 transform hover:scale-[1.02] bg-gradient-to-r from-slate-600 to-gray-700 text-white hover:from-slate-700 hover:to-gray-800"
-          >
-            Continuar
-          </button>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
+}
+
+// Função para salvar o nome do usuário
+const saveUserName = () => {
+  if (!initialUserName.trim()) {
+    setError('Digite seu nome');
+    return;
+  }
+  setUserName(initialUserName);
+  localStorage.setItem('stickyNotesUserName', initialUserName);
+  setUserNameSet(true);
+  setCurrentScreen('home');
+  setError('');
+};
 // Tela do menu principal
-if (!initialChoice && !showMainMyPanels && !currentPanel) {
+if (currentScreen === 'home' && !currentPanel) { {
   return (
     <div className={`min-h-screen ${GRADIENTS.main}`} style={{ backgroundColor: MAIN_COLORS.background }}>
       <div className="flex items-center justify-center min-h-screen p-4">
@@ -497,9 +515,9 @@ if (!initialChoice && !showMainMyPanels && !currentPanel) {
           <div className="space-y-4">
             <button
               onClick={() => {
-                setShowMainMyPanels(true);
-                loadMyPanels();
-              }}
+              setCurrentScreen('myPanels');
+              loadMyPanels();
+            }}
               className="w-full p-6 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl hover:from-purple-100 hover:to-indigo-100 transition-all duration-300 border border-purple-200 hover:border-purple-300 hover:shadow-lg transform hover:-translate-y-1"
             >
               <div className="flex items-center">
@@ -512,7 +530,7 @@ if (!initialChoice && !showMainMyPanels && !currentPanel) {
             </button>
 
             <button
-              onClick={() => setInitialChoice('create')}
+              onClick={() => setCurrentScreen('create')}
               className="w-full p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl hover:from-blue-100 hover:to-indigo-100 transition-all duration-300 border border-blue-200 hover:border-blue-300 hover:shadow-lg transform hover:-translate-y-1"
             >
               <div className="flex items-center">
@@ -525,7 +543,7 @@ if (!initialChoice && !showMainMyPanels && !currentPanel) {
             </button>
 
             <button
-              onClick={() => setInitialChoice('join')}
+              onClick={() => setCurrentScreen('join')}
               className="w-full p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl hover:from-green-100 hover:to-emerald-100 transition-all duration-300 border border-green-200 hover:border-green-300 hover:shadow-lg transform hover:-translate-y-1"
             >
               <div className="flex items-center">
@@ -557,14 +575,14 @@ if (!initialChoice && !showMainMyPanels && !currentPanel) {
   );
 }
   // Tela "Meus Murais" da tela principal
-  if (showMainMyPanels) {
+  if (currentScreen === 'myPanels') {
     return (
       <div className={`min-h-screen ${GRADIENTS.main}`} style={{ backgroundColor: MAIN_COLORS.background }}>
         <div className="flex items-center justify-center min-h-screen p-4">
           <div className="bg-white rounded-3xl shadow-2xl p-10 max-w-md w-full border border-gray-100">
             <button
               onClick={() => {
-                setShowMainMyPanels(false);
+                setCurrentScreen('home');
                 setMyPanels([]);
               }}
               className="mb-6 text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1 text-sm"
@@ -626,13 +644,13 @@ if (!initialChoice && !showMainMyPanels && !currentPanel) {
   }
 
   // Tela de escolha do tipo de painel (após escolher "Crie seu mural")
-  if (initialChoice === 'create' && !panelType) {
+  if (currentScreen === 'create' && !panelType) {
     return (
       <div className={`min-h-screen ${GRADIENTS.main}`} style={{ backgroundColor: MAIN_COLORS.background }}>
         <div className="flex items-center justify-center min-h-screen p-4">
           <div className="bg-white rounded-3xl shadow-2xl p-10 max-w-2xl w-full border border-gray-100">
             <button
-              onClick={() => setInitialChoice('')}
+              onClick={() => setCurrentScreen('home')}
               className="mb-6 text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1 text-sm"
             >
               ← Voltar
@@ -796,7 +814,7 @@ if (!initialChoice && !showMainMyPanels && !currentPanel) {
   if (!currentPanel) {
     const colors = getColors(panelType === 'join' ? 'friends' : panelType);
     const gradient = panelType === 'couple' ? GRADIENTS.couple : 
-                    initialChoice === 'join' ? GRADIENTS.main : GRADIENTS.friends;
+                currentScreen === 'join' ? GRADIENTS.main : GRADIENTS.friends;
 
     return (
       <div className={`min-h-screen ${gradient}`} style={{ backgroundColor: MAIN_COLORS.background }}>
@@ -804,15 +822,14 @@ if (!initialChoice && !showMainMyPanels && !currentPanel) {
           <div className="bg-white rounded-3xl shadow-2xl p-10 max-w-md w-full border border-gray-100">
             <button
               onClick={() => {
-                if (initialChoice === 'join') {
-                  setInitialChoice('');
+                if (currentScreen === 'join') {
+                  setCurrentScreen('home');
                   setPanelCode('');
                   setJoinPassword('');
                   setRequiresPasswordCheck(false);
                 } else {
                   setPanelType('');
                 }
-                setUserName('');
                 setError('');
               }}
               className="mb-6 text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1 text-sm"
@@ -823,14 +840,14 @@ if (!initialChoice && !showMainMyPanels && !currentPanel) {
             <div className="flex items-center justify-center mb-8">
               {panelType === 'couple' ? (
                 <Heart className="w-10 h-10 text-rose-500 mr-3" />
-              ) : initialChoice === 'join' ? (
+              ) : currentScreen === 'join' ? (
                 <Hash className="w-10 h-10 text-green-600 mr-3" />
               ) : (
                 <StickyNote className="w-10 h-10 text-slate-600 mr-3" />
               )}
               <h2 className="text-4xl font-bold text-gray-800">
                 {panelType === 'couple' ? 'Painel Romântico' : 
-                 initialChoice === 'join' ? 'Acessar Mural' : 
+                 currentScreen === 'join' ?  'Acessar Mural' : 
                  'Novo Mural'}
               </h2>
             </div>
@@ -1110,8 +1127,7 @@ if (!initialChoice && !showMainMyPanels && !currentPanel) {
     setBackgroundColor('');
     setShowExitConfirm(false);
     setShowMyPanels(false);
-    setShowMainMyPanels(false);
-    setInitialChoice('');
+    setCurrentScreen('home');
     setError('');
     setUserPanelCount(0);
   };
