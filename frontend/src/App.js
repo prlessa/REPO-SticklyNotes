@@ -352,21 +352,20 @@ export default function StickyNotesApp() {
     checkPassword();
   }, [panelCode, initialChoice]);
 
-  // NOVA FUNÇÃO: Remover usuário da tabela panel_participants
+  // FUNÇÃO CORRIGIDA: Remover usuário da tabela panel_participants
   const removeUserFromPanel = async (panelId, userId) => {
-    try {
-      const response = await fetch(`${API_URL}/api/panels/${panelId}/participants/${userId}`, {
-        method: 'DELETE'
-      });
-      
-      if (!response.ok) {
-        console.error('Erro ao remover participante:', response.status);
-      }
-    } catch (err) {
-      console.error('Erro ao remover participante:', err);
+  try {
+    const response = await fetch(`${API_URL}/api/panels/${panelId}/participants/${userId}`, {
+      method: 'DELETE'
+    });
+    
+    if (!response.ok) {
+      console.error('Erro ao remover participante:', response.status);
     }
-  };
-
+  } catch (err) {
+    console.error('Erro ao remover participante:', err);
+  }
+};
   // FUNÇÃO CORRIGIDA: switchPanel
   const switchPanel = async (panel) => {
     try {
@@ -429,11 +428,11 @@ export default function StickyNotesApp() {
             <div className="flex items-center justify-center mb-8">
               <StickyNote className="w-12 h-12 text-slate-600 mr-3" />
               <h1 className="text-5xl font-bold text-gray-800">
-                Sticky Notes
+                Stickly Notes
               </h1>
             </div>
             <p className="text-center text-gray-600 mb-10 text-lg">
-              Escolha uma opção para começar.
+              Pense, anote, compartilhe!
             </p>
 
             <div className="space-y-4">
@@ -510,9 +509,9 @@ export default function StickyNotesApp() {
 
             {myPanels.length > 0 ? (
               <div className="space-y-3">
-                <p className="text-sm text-gray-600 mb-4">
-                  Você participa de {myPanels.length} mural(is)
-                </p>
+              <p className="text-sm text-gray-600 mb-4">
+                Você participa de {myPanels.length} {myPanels.length === 1 ? 'mural' : 'murais'}
+              </p>
                 {myPanels.map(panel => (
                   <div
                     key={panel.id}
@@ -570,11 +569,11 @@ export default function StickyNotesApp() {
             <div className="flex items-center justify-center mb-8">
               <StickyNote className="w-12 h-12 text-slate-600 mr-3" />
               <h1 className="text-4xl font-bold text-gray-800">
-                Tipo de Mural
+                Novo Mural
               </h1>
             </div>
             <p className="text-center text-gray-600 mb-10 text-lg">
-              Escolha o tipo de grupo para seu mural.
+              Quero compartilhar com:
             </p>
 
             <div className="space-y-4">
@@ -585,8 +584,8 @@ export default function StickyNotesApp() {
                 <div className="flex items-center">
                   <Users className="w-8 h-8 text-slate-600 mr-4" />
                   <div className="text-left">
-                    <h3 className="text-xl font-semibold text-gray-800">Para amigos</h3>
-                    <p className="text-gray-600 text-sm mt-1">Mural aconchegante para compartilhar com amigos</p>
+                    <h3 className="text-xl font-semibold text-gray-800">Meus amigos</h3>
+                    <p className="text-gray-600 text-sm mt-1">Mural aconchegante para compartilhar com seus amigos</p>
                   </div>
                 </div>
               </button>
@@ -598,8 +597,8 @@ export default function StickyNotesApp() {
                 <div className="flex items-center">
                   <Heart className="w-8 h-8 text-rose-500 mr-4" />
                   <div className="text-left">
-                    <h3 className="text-xl font-semibold text-gray-800">Para casais</h3>
-                    <p className="text-gray-600 text-sm mt-1">Mural romântico para compartilhar com seu par</p>
+                    <h3 className="text-xl font-semibold text-gray-800">Meu par</h3>
+                    <p className="text-gray-600 text-sm mt-1">Mural romântico para compartilhar com seu amor</p>
                   </div>
                 </div>
               </button>
@@ -835,7 +834,7 @@ export default function StickyNotesApp() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       <Palette className="w-4 h-4 inline mr-1" />
-                      Cor da Borda do Mural
+                      Cor da Borda
                     </label>
                     <div className="flex gap-2 flex-wrap">
                       {colors.borders.map(color => (
@@ -854,7 +853,7 @@ export default function StickyNotesApp() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       <Palette className="w-4 h-4 inline mr-1" />
-                      Cor de Fundo do Mural
+                      Cor de Fundo
                     </label>
                     <div className="flex gap-2 flex-wrap">
                       {colors.backgrounds.map(color => (
@@ -910,7 +909,7 @@ export default function StickyNotesApp() {
                         : 'bg-gradient-to-r from-slate-600 to-gray-700 text-white hover:from-slate-700 hover:to-gray-800'
                     }`}
                   >
-                    {loading ? 'Criando...' : `Criar ${panelType === 'couple' ? 'Mural Romântico ❤️' : 'Mural para Amigos'}`}
+                    {loading ? 'Criando...' : `Criar ${panelType === 'couple' ? 'Mural' : 'Mural'}`}
                   </button>
                 </>
               )}
@@ -1266,7 +1265,7 @@ export default function StickyNotesApp() {
                 ) : (
                   <Users className="w-6 h-6 text-slate-600" />
                 )}
-                Meus murais {currentPanel.type === 'couple' ? 'de Casal' : 'de Amigos'} ({userPanelCount})
+                Meus {userPanelCount === 1 ? 'mural' : 'murais'} {currentPanel.type === 'couple' ? 'de Casal' : 'de Amigos'} ({userPanelCount})
               </h2>
               <button
                 onClick={() => setShowMyPanels(false)}

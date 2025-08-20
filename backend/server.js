@@ -515,6 +515,29 @@ app.delete('/api/posts/:postId', async (req, res) => {
     res.status(500).json({ error: 'Erro ao deletar post' });
   }
 });
+// Remover participante do painel (desvinculação permanente)
+app.delete('/api/panels/:code/participants/:userId', async (req, res) => {
+  try {
+    const { code, userId } = req.params;
+    
+    // Remover da tabela de participantes
+    await pg.query(
+      'DELETE FROM panel_participants WHERE panel_id = $1 AND user_id = $2',
+      [code.toUpperCase(), userId]
+    );
+    
+    // Também remover da tabela de usuários ativos
+    await pg.query(
+      'DELETE FROM active_users WHERE panel_id = $1 AND user_id = $2',
+      [code.toUpperCase(), userId]
+    );
+    
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error removing participant:', error);
+    res.status(500).json({ error: 'Erro ao remover participante' });
+  }
+});
 
 // Gerenciar usuários ativos
 app.post('/api/panels/:code/users', async (req, res) => {
