@@ -219,23 +219,22 @@ export default function StickyNotesApp() {
   const [initialUserName, setInitialUserName] = useState('');
   const [userPanelCount, setUserPanelCount] = useState(0);
   
-  // Estados para controlar fluxo e "Meus Murais" na tela principal
-  const [initialChoice, setInitialChoice] = useState('');
-  const [showMainMyPanels, setShowMainMyPanels] = useState(false);
+  // Estados para controlar fluxo
+  const [currentScreen, setCurrentScreen] = useState('home');
 
-const pollingInterval = useRef(null);
+  const pollingInterval = useRef(null);
 
-// Inicializar dados do usuário
-useEffect(() => {
-  const savedName = localStorage.getItem('stickyNotesUserName');
-  if (savedName) {
-    setUserName(savedName);
-    setInitialUserName(savedName);
-    setUserNameSet(true);
-  } else {
-    setUserNameSet(false);
-  }
-}, []);
+  // Inicializar dados do usuário
+  useEffect(() => {
+    const savedName = localStorage.getItem('stickyNotesUserName');
+    if (savedName) {
+      setUserName(savedName);
+      setInitialUserName(savedName);
+      setUserNameSet(true);
+    } else {
+      setUserNameSet(false);
+    }
+  }, []);
 
   // Inicializar cores baseadas no tipo do painel
   useEffect(() => {
@@ -256,6 +255,25 @@ useEffect(() => {
       fetchUserPanelCount();
     }
   }, [currentPanel]);
+
+  // Verificar se painel requer senha
+  useEffect(() => {
+    const checkPassword = async () => {
+      if (currentScreen === 'join' && panelCode.length === 6) {
+        try {
+          const response = await fetch(`${API_URL}/api/panels/${panelCode.toUpperCase()}/check`);
+          if (response.ok) {
+            const data = await response.json();
+            setRequiresPasswordCheck(data.requiresPassword);
+          }
+        } catch (err) {
+          console.error('Erro ao verificar senha:', err);
+        }
+      }
+    };
+    
+    checkPassword();
+  }, [panelCode, currentScreen]);
 
   // Buscar contador de painéis do usuário para o tipo atual
   const fetchUserPanelCount = useCallback(async () => {
@@ -317,6 +335,34 @@ useEffect(() => {
     }
   }, [currentPanel, userName, userId]);
 
+  // Função para salvar o nome do usuário
+  const saveUserName = () => {
+    if (!initialUserName.trim()) {
+      setError('Digite seu nome');
+      return;
+    }
+    setUserName(initialUserName);
+    localStorage.setItem('stickyNotesUserName', initialUserName);
+    setUserNameSet(true);
+    setCurrentScreen('home');
+    setError('');
+  };
+
+  // FUNÇÃO CORRIGIDA: Remover usuário da tabela panel_participants
+  const removeUserFromPanel = async (panelId, userId) => {
+    try {
+      const response = await fetch(`${API_URL}/api/panels/${panelId}/participants/${userId}`, {
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) {
+        console.error('Erro ao remover participante:', response.status);
+      }
+    } catch (err) {
+      console.error('Erro ao remover participante:', err);
+    }
+  };
+
   useEffect(() => {
     if (currentPanel && userName) {
       fetchPosts();
@@ -347,46 +393,12 @@ useEffect(() => {
     }
   }, [currentPanel, userName, userId, fetchPosts, fetchActiveUsers, fetchUserPanelCount]);
 
-  // Verificar se painel requer senha
-  useEffect(() => {
-    const checkPassword = async () => {
-      if (initialChoice === 'join' && panelCode.length === 6) {
-        try {
-          const response = await fetch(`${API_URL}/api/panels/${panelCode.toUpperCase()}/check`);
-          if (response.ok) {
-            const data = await response.json();
-            setRequiresPasswordCheck(data.requiresPassword);
-          }
-        } catch (err) {
-          console.error('Erro ao verificar senha:', err);
-        }
-      }
-    };
-    
-    checkPassword();
-  }, [panelCode, initialChoice]);
-
-  // FUNÇÃO CORRIGIDA: Remover usuário da tabela panel_participants
-  const removeUserFromPanel = async (panelId, userId) => {
-  try {
-    const response = await fetch(`${API_URL}/api/panels/${panelId}/participants/${userId}`, {
-      method: 'DELETE'
-    });
-    
-    if (!response.ok) {
-      console.error('Erro ao remover participante:', response.status);
-    }
-  } catch (err) {
-    console.error('Erro ao remover participante:', err);
-  }
-};
   // FUNÇÃO CORRIGIDA: switchPanel
   const switchPanel = async (panel) => {
     try {
       // Se é o mesmo painel, apenas fechar o modal
       if (panel.id === currentPanel?.id) {
         setShowMyPanels(false);
-        setShowMainMyPanels(false);
         return;
       }
 
@@ -417,8 +429,7 @@ useEffect(() => {
         setUserName(panel.user_name || userName);
         setShowPanelSwitch(false);
         setShowMyPanels(false);
-        setShowMainMyPanels(false);
-        setInitialChoice('');
+        setCurrentScreen('home');
         
         // Limpar posts antigos e buscar novos
         setPosts([]);
@@ -433,147 +444,235 @@ useEffect(() => {
     }
   };
 
-  // Tela inicial - Nova estrutura com "Meus Murais" no topo
-if (!userNameSet) {
-  return (
-    <div className={`min-h-screen ${GRADIENTS.main}`} style={{ backgroundColor: MAIN_COLORS.background }}>
-      <div className="flex items-center justify-center min-h-screen p-4">
-        <div className="bg-white rounded-3xl shadow-2xl p-10 max-w-md w-full border border-gray-100">
-          <div className="flex items-center justify-center mb-8">
-            <StickyNote className="w-12 h-12 text-slate-600 mr-3" />
-            <h1 className="text-4xl font-bold text-gray-800">
-              Bem-vindo!
-            </h1>
-          </div>
-          <p className="text-center text-gray-600 mb-8 text-lg">
-            Como você gostaria de ser chamado?
-          </p>
+  const createPanel = async () => {
+    if (!panelName.trim()) {
+      setError('Digite um nome para o painel');
+      return;
+    }
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-4 text-sm">
-              {error}
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch(`${API_URL}/api/panels`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          name: panelName,
+          type: panelType,
+          password: requirePassword ? panelPassword : null,
+          creator: userName,
+          userId: userId,
+          borderColor,
+          backgroundColor
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('Erro ao criar painel:', errorData);
+        throw new Error('Erro ao criar painel');
+      }
+
+      const panel = await response.json();
+      setCurrentPanel(panel);
+      
+    } catch (err) {
+      console.error('Erro completo:', err);
+      setError('Erro ao criar painel. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const accessPanel = async () => {
+    if (!panelCode.trim()) {
+      setError('Digite o código do painel');
+      return;
+    }
+
+    if (!userName.trim()) {
+      setError('Digite seu nome');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch(`${API_URL}/api/panels/${panelCode.toUpperCase()}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          password: joinPassword || undefined,
+          userName: userName,
+          userId: userId
+        })
+      });
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Painel não encontrado');
+        }
+        if (response.status === 401) {
+          throw new Error('Senha incorreta');
+        }
+        if (response.status === 403) {
+          throw new Error('Painel lotado');
+        }
+        const errorData = await response.text();
+        console.error('Erro ao acessar painel:', errorData);
+        throw new Error('Erro ao acessar painel');
+      }
+
+      const panel = await response.json();
+      setCurrentPanel(panel);
+      
+      // Buscar posts existentes
+      const postsResponse = await fetch(`${API_URL}/api/panels/${panelCode.toUpperCase()}/posts`);
+      if (postsResponse.ok) {
+        const postsData = await postsResponse.json();
+        setPosts(postsData);
+      }
+      
+    } catch (err) {
+      console.error('Erro completo:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Tela inicial - Pergunta do nome
+  if (!userNameSet) {
+    return (
+      <div className={`min-h-screen ${GRADIENTS.main}`} style={{ backgroundColor: MAIN_COLORS.background }}>
+        <div className="flex items-center justify-center min-h-screen p-4">
+          <div className="bg-white rounded-3xl shadow-2xl p-10 max-w-md w-full border border-gray-100">
+            <div className="flex items-center justify-center mb-8">
+              <StickyNote className="w-12 h-12 text-slate-600 mr-3" />
+              <h1 className="text-4xl font-bold text-gray-800">
+                Bem-vindo!
+              </h1>
             </div>
-          )}
+            <p className="text-center text-gray-600 mb-8 text-lg">
+              Como você gostaria de ser chamado?
+            </p>
 
-          <div className="space-y-5">
-            <div>
-              <input
-                type="text"
-                placeholder="Digite seu nome..."
-                value={initialUserName}
-                onChange={(e) => setInitialUserName(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition-all text-center text-lg"
-                onKeyPress={(e) => e.key === 'Enter' && saveUserName()}
-                autoFocus
-              />
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-4 text-sm">
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-5">
+              <div>
+                <input
+                  type="text"
+                  placeholder="Digite seu nome..."
+                  value={initialUserName}
+                  onChange={(e) => setInitialUserName(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition-all text-center text-lg"
+                  onKeyPress={(e) => e.key === 'Enter' && saveUserName()}
+                  autoFocus
+                />
+              </div>
+
+              <button
+                onClick={saveUserName}
+                className="w-full py-3 rounded-xl font-semibold transition-all duration-200 transform hover:scale-[1.02] bg-gradient-to-r from-slate-600 to-gray-700 text-white hover:from-slate-700 hover:to-gray-800"
+              >
+                Continuar
+              </button>
             </div>
-
-            <button
-              onClick={saveUserName}
-              className="w-full py-3 rounded-xl font-semibold transition-all duration-200 transform hover:scale-[1.02] bg-gradient-to-r from-slate-600 to-gray-700 text-white hover:from-slate-700 hover:to-gray-800"
-            >
-              Continuar
-            </button>
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-// Função para salvar o nome do usuário
-const saveUserName = () => {
-  if (!initialUserName.trim()) {
-    setError('Digite seu nome');
-    return;
+    );
   }
-  setUserName(initialUserName);
-  localStorage.setItem('stickyNotesUserName', initialUserName);
-  setUserNameSet(true);
-  setCurrentScreen('home');
-  setError('');
-};
-// Tela do menu principal
-if (currentScreen === 'home' && !currentPanel) { {
-  return (
-    <div className={`min-h-screen ${GRADIENTS.main}`} style={{ backgroundColor: MAIN_COLORS.background }}>
-      <div className="flex items-center justify-center min-h-screen p-4">
-        <div className="bg-white rounded-3xl shadow-2xl p-10 max-w-2xl w-full border border-gray-100">
-          <div className="flex items-center justify-center mb-8">
-            <StickyNote className="w-12 h-12 text-slate-600 mr-3" />
-            <h1 className="text-5xl font-bold text-gray-800">
-              Stickly Notes
-            </h1>
-          </div>
-          <p className="text-center text-gray-600 mb-4 text-lg">
-            Olá, <span className="font-semibold text-slate-700">{userName}</span>! 👋
-          </p>
-          <p className="text-center text-gray-600 mb-10 text-lg">
-            Pense, anote, compartilhe!
-          </p>
 
-          <div className="space-y-4">
-            <button
-              onClick={() => {
-              setCurrentScreen('myPanels');
-              loadMyPanels();
-            }}
-              className="w-full p-6 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl hover:from-purple-100 hover:to-indigo-100 transition-all duration-300 border border-purple-200 hover:border-purple-300 hover:shadow-lg transform hover:-translate-y-1"
-            >
-              <div className="flex items-center">
-                <Users className="w-8 h-8 text-purple-600 mr-4" />
-                <div className="text-left">
-                  <h3 className="text-xl font-semibold text-gray-800">Meus murais</h3>
-                  <p className="text-gray-600 text-sm mt-1">Acesse os murais que você já participa</p>
+  // Tela do menu principal
+  if (currentScreen === 'home' && !currentPanel) {
+    return (
+      <div className={`min-h-screen ${GRADIENTS.main}`} style={{ backgroundColor: MAIN_COLORS.background }}>
+        <div className="flex items-center justify-center min-h-screen p-4">
+          <div className="bg-white rounded-3xl shadow-2xl p-10 max-w-2xl w-full border border-gray-100">
+            <div className="flex items-center justify-center mb-8">
+              <StickyNote className="w-12 h-12 text-slate-600 mr-3" />
+              <h1 className="text-5xl font-bold text-gray-800">
+                Stickly Notes
+              </h1>
+            </div>
+            <p className="text-center text-gray-600 mb-4 text-lg">
+              Olá, <span className="font-semibold text-slate-700">{userName}</span>! 👋
+            </p>
+            <p className="text-center text-gray-600 mb-10 text-lg">
+              Pense, anote, compartilhe!
+            </p>
+
+            <div className="space-y-4">
+              <button
+                onClick={() => {
+                  setCurrentScreen('myPanels');
+                  loadMyPanels();
+                }}
+                className="w-full p-6 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl hover:from-purple-100 hover:to-indigo-100 transition-all duration-300 border border-purple-200 hover:border-purple-300 hover:shadow-lg transform hover:-translate-y-1"
+              >
+                <div className="flex items-center">
+                  <Users className="w-8 h-8 text-purple-600 mr-4" />
+                  <div className="text-left">
+                    <h3 className="text-xl font-semibold text-gray-800">Meus murais</h3>
+                    <p className="text-gray-600 text-sm mt-1">Acesse os murais que você já participa</p>
+                  </div>
                 </div>
-              </div>
-            </button>
+              </button>
 
-            <button
-              onClick={() => setCurrentScreen('create')}
-              className="w-full p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl hover:from-blue-100 hover:to-indigo-100 transition-all duration-300 border border-blue-200 hover:border-blue-300 hover:shadow-lg transform hover:-translate-y-1"
-            >
-              <div className="flex items-center">
-                <StickyNote className="w-8 h-8 text-blue-600 mr-4" />
-                <div className="text-left">
-                  <h3 className="text-xl font-semibold text-gray-800">Crie seu mural</h3>
-                  <p className="text-gray-600 text-sm mt-1">Comece um novo mural para compartilhar com amigos ou seu par</p>
+              <button
+                onClick={() => setCurrentScreen('create')}
+                className="w-full p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl hover:from-blue-100 hover:to-indigo-100 transition-all duration-300 border border-blue-200 hover:border-blue-300 hover:shadow-lg transform hover:-translate-y-1"
+              >
+                <div className="flex items-center">
+                  <StickyNote className="w-8 h-8 text-blue-600 mr-4" />
+                  <div className="text-left">
+                    <h3 className="text-xl font-semibold text-gray-800">Crie seu mural</h3>
+                    <p className="text-gray-600 text-sm mt-1">Comece um novo mural para compartilhar com amigos ou seu par</p>
+                  </div>
                 </div>
-              </div>
-            </button>
+              </button>
 
-            <button
-              onClick={() => setCurrentScreen('join')}
-              className="w-full p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl hover:from-green-100 hover:to-emerald-100 transition-all duration-300 border border-green-200 hover:border-green-300 hover:shadow-lg transform hover:-translate-y-1"
-            >
-              <div className="flex items-center">
-                <Hash className="w-8 h-8 text-green-600 mr-4" />
-                <div className="text-left">
-                  <h3 className="text-xl font-semibold text-gray-800">Acesse um mural</h3>
-                  <p className="text-gray-600 text-sm mt-1">Entre em um mural existente usando um código</p>
+              <button
+                onClick={() => setCurrentScreen('join')}
+                className="w-full p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl hover:from-green-100 hover:to-emerald-100 transition-all duration-300 border border-green-200 hover:border-green-300 hover:shadow-lg transform hover:-translate-y-1"
+              >
+                <div className="flex items-center">
+                  <Hash className="w-8 h-8 text-green-600 mr-4" />
+                  <div className="text-left">
+                    <h3 className="text-xl font-semibold text-gray-800">Acesse um mural</h3>
+                    <p className="text-gray-600 text-sm mt-1">Entre em um mural existente usando um código</p>
+                  </div>
                 </div>
-              </div>
-            </button>
-          </div>
+              </button>
+            </div>
 
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <button
-              onClick={() => {
-                localStorage.removeItem('stickyNotesUserName');
-                setUserNameSet(false);
-                setInitialUserName('');
-                setUserName('');
-              }}
-              className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
-            >
-              Alterar nome
-            </button>
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  localStorage.removeItem('stickyNotesUserName');
+                  setUserNameSet(false);
+                  setInitialUserName('');
+                  setUserName('');
+                }}
+                className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Alterar nome
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
+
   // Tela "Meus Murais" da tela principal
   if (currentScreen === 'myPanels') {
     return (
@@ -698,123 +797,12 @@ if (currentScreen === 'home' && !currentPanel) { {
       </div>
     );
   }
-  // Area para digitar o nome
-  const saveUserName = () => {
-  if (!initialUserName.trim()) {
-    setError('Digite seu nome');
-    return;
-  }
-  setUserName(initialUserName);
-  localStorage.setItem('stickyNotesUserName', initialUserName);
-  setUserNameSet(true);
-  setError('');
-};
-
-  // Continuar com as demais funções de API
-  const createPanel = async () => {
-    if (!panelName.trim()) {
-      setError('Digite um nome para o painel');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      const response = await fetch(`${API_URL}/api/panels`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          name: panelName,
-          type: panelType,
-          password: requirePassword ? panelPassword : null,
-          creator: userName,
-          userId: userId,
-          borderColor,
-          backgroundColor
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error('Erro ao criar painel:', errorData);
-        throw new Error('Erro ao criar painel');
-      }
-
-      const panel = await response.json();
-      setCurrentPanel(panel);
-      
-    } catch (err) {
-      console.error('Erro completo:', err);
-      setError('Erro ao criar painel. Tente novamente.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const accessPanel = async () => {
-    if (!panelCode.trim()) {
-      setError('Digite o código do painel');
-      return;
-    }
-
-    if (!userName.trim()) {
-      setError('Digite seu nome');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      const response = await fetch(`${API_URL}/api/panels/${panelCode.toUpperCase()}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          password: joinPassword || undefined,
-          userName: userName,
-          userId: userId
-        })
-      });
-      
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error('Painel não encontrado');
-        }
-        if (response.status === 401) {
-          throw new Error('Senha incorreta');
-        }
-        if (response.status === 403) {
-          throw new Error('Painel lotado');
-        }
-        const errorData = await response.text();
-        console.error('Erro ao acessar painel:', errorData);
-        throw new Error('Erro ao acessar painel');
-      }
-
-      const panel = await response.json();
-      setCurrentPanel(panel);
-      
-      // Buscar posts existentes
-      const postsResponse = await fetch(`${API_URL}/api/panels/${panelCode.toUpperCase()}/posts`);
-      if (postsResponse.ok) {
-        const postsData = await postsResponse.json();
-        setPosts(postsData);
-      }
-      
-    } catch (err) {
-      console.error('Erro completo:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Tela de criação/acesso
   if (!currentPanel) {
     const colors = getColors(panelType === 'join' ? 'friends' : panelType);
     const gradient = panelType === 'couple' ? GRADIENTS.couple : 
-                currentScreen === 'join' ? GRADIENTS.main : GRADIENTS.friends;
+                    currentScreen === 'join' ? GRADIENTS.main : GRADIENTS.friends;
 
     return (
       <div className={`min-h-screen ${gradient}`} style={{ backgroundColor: MAIN_COLORS.background }}>
@@ -847,7 +835,7 @@ if (currentScreen === 'home' && !currentPanel) { {
               )}
               <h2 className="text-4xl font-bold text-gray-800">
                 {panelType === 'couple' ? 'Painel Romântico' : 
-                 currentScreen === 'join' ?  'Acessar Mural' : 
+                 currentScreen === 'join' ? 'Acessar Mural' : 
                  'Novo Mural'}
               </h2>
             </div>
@@ -860,7 +848,7 @@ if (currentScreen === 'home' && !currentPanel) { {
 
             <div className="space-y-5">
 
-              {initialChoice === 'join' ? (
+              {currentScreen === 'join' ? (
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1450,7 +1438,6 @@ if (currentScreen === 'home' && !currentPanel) { {
           </div>
         </div>
       )}
-
       {/* Modal Nova Nota */}
       {showNewPostForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -1599,5 +1586,4 @@ if (currentScreen === 'home' && !currentPanel) { {
       )}
     </div>
   );
-} 
 }
