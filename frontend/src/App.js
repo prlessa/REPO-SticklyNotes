@@ -215,6 +215,8 @@ export default function StickyNotesApp() {
   const [showPanelSwitch, setShowPanelSwitch] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [requiresPasswordCheck, setRequiresPasswordCheck] = useState(false);
+  const [userNameSet, setUserNameSet] = useState(false);
+  const [initialUserName, setInitialUserName] = useState('');
   const [userPanelCount, setUserPanelCount] = useState(0);
   
   // Estados para controlar fluxo e "Meus Murais" na tela principal
@@ -222,6 +224,14 @@ export default function StickyNotesApp() {
   const [showMainMyPanels, setShowMainMyPanels] = useState(false);
 
   const pollingInterval = useRef(null);
+  useEffect(() => {
+  const savedName = localStorage.getItem('stickyNotesUserName');
+  if (savedName) {
+    setUserName(savedName);
+    setInitialUserName(savedName);
+    setUserNameSet(true);
+  }
+}, []);
 
   // Inicializar cores baseadas no tipo do painel
   useEffect(() => {
@@ -420,70 +430,132 @@ export default function StickyNotesApp() {
   };
 
   // Tela inicial - Nova estrutura com "Meus Murais" no topo
-  if (!initialChoice && !showMainMyPanels && !currentPanel) {
-    return (
-      <div className={`min-h-screen ${GRADIENTS.main}`} style={{ backgroundColor: MAIN_COLORS.background }}>
-        <div className="flex items-center justify-center min-h-screen p-4">
-          <div className="bg-white rounded-3xl shadow-2xl p-10 max-w-2xl w-full border border-gray-100">
-            <div className="flex items-center justify-center mb-8">
-              <StickyNote className="w-12 h-12 text-slate-600 mr-3" />
-              <h1 className="text-5xl font-bold text-gray-800">
-                Stickly Notes
-              </h1>
-            </div>
-            <p className="text-center text-gray-600 mb-10 text-lg">
-              Pense, anote, compartilhe!
-            </p>
+  if (!userNameSet) {
+return (
+  <div className={`min-h-screen ${GRADIENTS.main}`} style={{ backgroundColor: MAIN_COLORS.background }}>
+    <div className="flex items-center justify-center min-h-screen p-4">
+      <div className="bg-white rounded-3xl shadow-2xl p-10 max-w-md w-full border border-gray-100">
+        <div className="flex items-center justify-center mb-8">
+          <StickyNote className="w-12 h-12 text-slate-600 mr-3" />
+          <h1 className="text-4xl font-bold text-gray-800">
+            Bem-vindo!
+          </h1>
+        </div>
+        <p className="text-center text-gray-600 mb-8 text-lg">
+          Como você gostaria de ser chamado?
+        </p>
 
-            <div className="space-y-4">
-              <button
-                onClick={() => {
-                  setShowMainMyPanels(true);
-                  loadMyPanels();
-                }}
-                className="w-full p-6 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl hover:from-purple-100 hover:to-indigo-100 transition-all duration-300 border border-purple-200 hover:border-purple-300 hover:shadow-lg transform hover:-translate-y-1"
-              >
-                <div className="flex items-center">
-                  <Users className="w-8 h-8 text-purple-600 mr-4" />
-                  <div className="text-left">
-                    <h3 className="text-xl font-semibold text-gray-800">Meus murais</h3>
-                    <p className="text-gray-600 text-sm mt-1">Acesse os murais que você já participa</p>
-                  </div>
-                </div>
-              </button>
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-4 text-sm">
+            {error}
+          </div>
+        )}
 
-              <button
-                onClick={() => setInitialChoice('create')}
-                className="w-full p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl hover:from-blue-100 hover:to-indigo-100 transition-all duration-300 border border-blue-200 hover:border-blue-300 hover:shadow-lg transform hover:-translate-y-1"
-              >
-                <div className="flex items-center">
-                  <StickyNote className="w-8 h-8 text-blue-600 mr-4" />
-                  <div className="text-left">
-                    <h3 className="text-xl font-semibold text-gray-800">Crie seu mural</h3>
-                    <p className="text-gray-600 text-sm mt-1">Comece um novo mural para compartilhar com amigos ou seu par</p>
-                  </div>
-                </div>
-              </button>
+        <div className="space-y-5">
+          <div>
+            <input
+              type="text"
+              placeholder="Digite seu nome..."
+              value={initialUserName}
+              onChange={(e) => setInitialUserName(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition-all text-center text-lg"
+              onKeyPress={(e) => e.key === 'Enter' && saveUserName()}
+              autoFocus
+            />
+          </div>
 
-              <button
-                onClick={() => setInitialChoice('join')}
-                className="w-full p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl hover:from-green-100 hover:to-emerald-100 transition-all duration-300 border border-green-200 hover:border-green-300 hover:shadow-lg transform hover:-translate-y-1"
-              >
-                <div className="flex items-center">
-                  <Hash className="w-8 h-8 text-green-600 mr-4" />
-                  <div className="text-left">
-                    <h3 className="text-xl font-semibold text-gray-800">Acesse um mural</h3>
-                    <p className="text-gray-600 text-sm mt-1">Entre em um mural existente usando um código</p>
-                  </div>
+          <button
+            onClick={saveUserName}
+            className="w-full py-3 rounded-xl font-semibold transition-all duration-200 transform hover:scale-[1.02] bg-gradient-to-r from-slate-600 to-gray-700 text-white hover:from-slate-700 hover:to-gray-800"
+          >
+            Continuar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+// Tela do menu principal
+if (!initialChoice && !showMainMyPanels && !currentPanel) {
+  return (
+    <div className={`min-h-screen ${GRADIENTS.main}`} style={{ backgroundColor: MAIN_COLORS.background }}>
+      <div className="flex items-center justify-center min-h-screen p-4">
+        <div className="bg-white rounded-3xl shadow-2xl p-10 max-w-2xl w-full border border-gray-100">
+          <div className="flex items-center justify-center mb-8">
+            <StickyNote className="w-12 h-12 text-slate-600 mr-3" />
+            <h1 className="text-5xl font-bold text-gray-800">
+              Stickly Notes
+            </h1>
+          </div>
+          <p className="text-center text-gray-600 mb-4 text-lg">
+            Olá, <span className="font-semibold text-slate-700">{userName}</span>! 👋
+          </p>
+          <p className="text-center text-gray-600 mb-10 text-lg">
+            Pense, anote, compartilhe!
+          </p>
+
+          <div className="space-y-4">
+            <button
+              onClick={() => {
+                setShowMainMyPanels(true);
+                loadMyPanels();
+              }}
+              className="w-full p-6 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl hover:from-purple-100 hover:to-indigo-100 transition-all duration-300 border border-purple-200 hover:border-purple-300 hover:shadow-lg transform hover:-translate-y-1"
+            >
+              <div className="flex items-center">
+                <Users className="w-8 h-8 text-purple-600 mr-4" />
+                <div className="text-left">
+                  <h3 className="text-xl font-semibold text-gray-800">Meus murais</h3>
+                  <p className="text-gray-600 text-sm mt-1">Acesse os murais que você já participa</p>
                 </div>
-              </button>
-            </div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setInitialChoice('create')}
+              className="w-full p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl hover:from-blue-100 hover:to-indigo-100 transition-all duration-300 border border-blue-200 hover:border-blue-300 hover:shadow-lg transform hover:-translate-y-1"
+            >
+              <div className="flex items-center">
+                <StickyNote className="w-8 h-8 text-blue-600 mr-4" />
+                <div className="text-left">
+                  <h3 className="text-xl font-semibold text-gray-800">Crie seu mural</h3>
+                  <p className="text-gray-600 text-sm mt-1">Comece um novo mural para compartilhar com amigos ou seu par</p>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setInitialChoice('join')}
+              className="w-full p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl hover:from-green-100 hover:to-emerald-100 transition-all duration-300 border border-green-200 hover:border-green-300 hover:shadow-lg transform hover:-translate-y-1"
+            >
+              <div className="flex items-center">
+                <Hash className="w-8 h-8 text-green-600 mr-4" />
+                <div className="text-left">
+                  <h3 className="text-xl font-semibold text-gray-800">Acesse um mural</h3>
+                  <p className="text-gray-600 text-sm mt-1">Entre em um mural existente usando um código</p>
+                </div>
+              </div>
+            </button>
+          </div>
+
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <button
+              onClick={() => {
+                localStorage.removeItem('stickyNotesUserName');
+                setUserNameSet(false);
+                setInitialUserName('');
+                setUserName('');
+              }}
+              className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              Alterar nome
+            </button>
           </div>
         </div>
       </div>
-    );
-  }
-
+    </div>
+  );
+}
   // Tela "Meus Murais" da tela principal
   if (showMainMyPanels) {
     return (
@@ -608,16 +680,22 @@ export default function StickyNotesApp() {
       </div>
     );
   }
+  // Area para digitar o nome
+  const saveUserName = () => {
+  if (!initialUserName.trim()) {
+    setError('Digite seu nome');
+    return;
+  }
+  setUserName(initialUserName);
+  localStorage.setItem('stickyNotesUserName', initialUserName);
+  setUserNameSet(true);
+  setError('');
+};
 
   // Continuar com as demais funções de API
   const createPanel = async () => {
     if (!panelName.trim()) {
       setError('Digite um nome para o painel');
-      return;
-    }
-
-    if (!userName.trim()) {
-      setError('Digite seu nome');
       return;
     }
 
@@ -764,18 +842,6 @@ export default function StickyNotesApp() {
             )}
 
             <div className="space-y-5">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Seu Nome
-                </label>
-                <input
-                  type="text"
-                  placeholder="Como você quer ser chamado?"
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent transition-all"
-                />
-              </div>
 
               {initialChoice === 'join' ? (
                 <>
@@ -1517,4 +1583,5 @@ export default function StickyNotesApp() {
       )}
     </div>
   );
+} 
 }
