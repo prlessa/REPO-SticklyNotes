@@ -256,24 +256,24 @@ export default function StickyNotesApp() {
     }
   }, [currentPanel]);
 
-  // Verificar se painel requer senha
-  useEffect(() => {
-    const checkPassword = async () => {
-      if (currentScreen === 'join' && panelCode.length === 6) {
-        try {
-          const response = await fetch(`${API_URL}/api/panels/${panelCode.toUpperCase()}/check`);
-          if (response.ok) {
-            const data = await response.json();
-            setRequiresPasswordCheck(data.requiresPassword);
-          }
-        } catch (err) {
-          console.error('Erro ao verificar senha:', err);
+// Verificar se painel requer senha
+useEffect(() => {
+  const checkPassword = async () => {
+    if (currentScreen === 'join' && panelCode.length === 6) {
+      try {
+        const response = await fetch(`${API_URL}/api/panels/${panelCode.toUpperCase()}/check`);
+        if (response.ok) {
+          const data = await response.json();
+          setRequiresPasswordCheck(data.requiresPassword);
         }
+      } catch (err) {
+        console.error('Erro ao verificar senha:', err);
       }
-    };
-    
-    checkPassword();
-  }, [panelCode, currentScreen]);
+    }
+  };
+  
+  checkPassword();
+}, [panelCode, currentScreen]);
 
   // Buscar contador de painéis do usuário para o tipo atual
   const fetchUserPanelCount = useCallback(async () => {
@@ -393,7 +393,6 @@ export default function StickyNotesApp() {
     }
   }, [currentPanel, userName, userId, fetchPosts, fetchActiveUsers, fetchUserPanelCount]);
 
-// FUNÇÃO CORRIGIDA: switchPanel
 const switchPanel = async (panel) => {
   try {
     // Se é o mesmo painel, apenas fechar o modal
@@ -402,7 +401,15 @@ const switchPanel = async (panel) => {
       return;
     }
 
-    // Apenas remover da lista de usuários ativos (não da lista de participantes)
+    // Fechar o modal imediatamente
+    setShowMyPanels(false);
+    
+    // Parar polling do painel atual
+    if (pollingInterval.current) {
+      clearInterval(pollingInterval.current);
+    }
+
+    // Remover da lista de usuários ativos do painel atual
     if (currentPanel && userId) {
       try {
         await fetch(`${API_URL}/api/panels/${currentPanel.id}/users/${userId}`, {
@@ -412,6 +419,10 @@ const switchPanel = async (panel) => {
         console.error('Erro ao remover usuário do painel atual:', err);
       }
     }
+
+    // Limpar estado atual primeiro
+    setPosts([]);
+    setActiveUsers([]);
 
     // Acessar o novo painel
     const response = await fetch(`${API_URL}/api/panels/${panel.id}`, {
@@ -425,28 +436,19 @@ const switchPanel = async (panel) => {
     
     if (response.ok) {
       const updatedPanel = await response.json();
+      
+      // Atualizar painel atual - isso vai disparar os useEffects
       setCurrentPanel(updatedPanel);
       setUserName(panel.user_name || userName);
-      setShowPanelSwitch(false);
-      setShowMyPanels(false);
-  
-      // Limpar posts antigos e buscar novos
-      setPosts([]);
-      setActiveUsers([]);
-  
-      // Buscar posts existentes do painel
-      const postsResponse = await fetch(`${API_URL}/api/panels/${panel.id}/posts`);
-      if (postsResponse.ok) {
-        const postsData = await postsResponse.json();
-        setPosts(postsData);
-      }
+      
     } else {
-      console.error('Erro ao acessar painel:', response.status);
-      setError('Erro ao acessar painel');
+      const errorText = await response.text();
+      console.error('Erro ao acessar painel:', response.status, errorText);
+      setError('Erro ao acessar painel: ' + errorText);
     }
   } catch (err) {
-    console.error('Erro ao trocar painel:', err);
-    setError('Erro ao trocar painel');
+    console.error('Erro completo ao trocar painel:', err);
+    setError('Erro ao trocar painel: ' + err.message);
   }
 };
 
@@ -726,12 +728,38 @@ const switchPanel = async (panel) => {
                           </p>
                         </div>
                       </div>
-                      <button
-                        onClick={() => switchPanel(panel)}
-                        className="px-3 py-1 text-sm bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
-                      >
-                        Entrar
-                      </button>
+                     <button
+                onClick={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentScreen('home');
+    setCurrentPanel(null);
+    // Usar setTimeout para garantir que o estado seja limpo antes de trocar
+    setTimeout(async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/panels/${panel.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userName: panel.user_name || userName,
+            userId: userId
+          })
+        });
+        
+        if (response.ok) {
+          const updatedPanel = await response.json();
+          setCurrentPanel(updatedPanel);
+          setUserName(panel.user_name || userName);
+        }
+      } catch (err) {
+        console.error('Erro ao acessar painel:', err);
+      }
+    }, 100);
+  }}
+  className="px-3 py-1 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+>
+  Entrar
+</button>
                     </div>
                   </div>
                 ))}
@@ -1411,7 +1439,10 @@ const exitPanelPermanently = async () => {
                     </div>
                     {panel.id !== currentPanel.id && (
                       <button
-                        onClick={() => switchPanel(panel)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          switchPanel(panel);
+                        }}
                         className="px-3 py-1 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
                       >
                         Entrar
@@ -1626,4 +1657,4 @@ const exitPanelPermanently = async () => {
       )}
     </div>
   );
-}
+} 
