@@ -393,56 +393,62 @@ export default function StickyNotesApp() {
     }
   }, [currentPanel, userName, userId, fetchPosts, fetchActiveUsers, fetchUserPanelCount]);
 
-  // FUNÇÃO CORRIGIDA: switchPanel
-  const switchPanel = async (panel) => {
-    try {
-      // Se é o mesmo painel, apenas fechar o modal
-      if (panel.id === currentPanel?.id) {
-        setShowMyPanels(false);
-        return;
-      }
-
-      // Remover usuário do painel atual antes de trocar
-      if (currentPanel && userId) {
-        try {
-          await fetch(`${API_URL}/api/panels/${currentPanel.id}/users/${userId}`, {
-            method: 'DELETE'
-          });
-        } catch (err) {
-          console.error('Erro ao remover usuário do painel atual:', err);
-        }
-      }
-
-      // Acessar o novo painel
-      const response = await fetch(`${API_URL}/api/panels/${panel.id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userName: panel.user_name || userName,
-          userId: userId
-        })
-      });
-      
-      if (response.ok) {
-        const updatedPanel = await response.json();
-        setCurrentPanel(updatedPanel);
-        setUserName(panel.user_name || userName);
-        setShowPanelSwitch(false);
-        setShowMyPanels(false);
-        setCurrentScreen('home');
-        
-        // Limpar posts antigos e buscar novos
-        setPosts([]);
-        setActiveUsers([]);
-      } else {
-        console.error('Erro ao acessar painel:', response.status);
-        setError('Erro ao acessar painel');
-      }
-    } catch (err) {
-      console.error('Erro ao trocar painel:', err);
-      setError('Erro ao trocar painel');
+// FUNÇÃO CORRIGIDA: switchPanel
+const switchPanel = async (panel) => {
+  try {
+    // Se é o mesmo painel, apenas fechar o modal
+    if (panel.id === currentPanel?.id) {
+      setShowMyPanels(false);
+      return;
     }
-  };
+
+    // Apenas remover da lista de usuários ativos (não da lista de participantes)
+    if (currentPanel && userId) {
+      try {
+        await fetch(`${API_URL}/api/panels/${currentPanel.id}/users/${userId}`, {
+          method: 'DELETE'
+        });
+      } catch (err) {
+        console.error('Erro ao remover usuário do painel atual:', err);
+      }
+    }
+
+    // Acessar o novo painel
+    const response = await fetch(`${API_URL}/api/panels/${panel.id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userName: panel.user_name || userName,
+        userId: userId
+      })
+    });
+    
+    if (response.ok) {
+      const updatedPanel = await response.json();
+      setCurrentPanel(updatedPanel);
+      setUserName(panel.user_name || userName);
+      setShowPanelSwitch(false);
+      setShowMyPanels(false);
+  
+      // Limpar posts antigos e buscar novos
+      setPosts([]);
+      setActiveUsers([]);
+  
+      // Buscar posts existentes do painel
+      const postsResponse = await fetch(`${API_URL}/api/panels/${panel.id}/posts`);
+      if (postsResponse.ok) {
+        const postsData = await postsResponse.json();
+        setPosts(postsData);
+      }
+    } else {
+      console.error('Erro ao acessar painel:', response.status);
+      setError('Erro ao acessar painel');
+    }
+  } catch (err) {
+    console.error('Erro ao trocar painel:', err);
+    setError('Erro ao trocar painel');
+  }
+};
 
   const createPanel = async () => {
     if (!panelName.trim()) {
@@ -552,11 +558,11 @@ export default function StickyNotesApp() {
             <div className="flex items-center justify-center mb-8">
               <StickyNote className="w-12 h-12 text-slate-600 mr-3" />
               <h1 className="text-4xl font-bold text-gray-800">
-                Bem-vindo!
+                Stickly Notes
               </h1>
             </div>
             <p className="text-center text-gray-600 mb-8 text-lg">
-              Como você gostaria de ser chamado?
+              Informe seu nome e seja bem vindo!
             </p>
 
             {error && (
@@ -1079,50 +1085,84 @@ export default function StickyNotesApp() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // FUNÇÃO CORRIGIDA: exitPanel
-  const exitPanel = async () => {
-    if (pollingInterval.current) {
-      clearInterval(pollingInterval.current);
+  // FUNÇÃO CORRIGIDA: exitPanel - apenas remove da lista ativa, não da participação
+const exitPanel = async () => {
+  if (pollingInterval.current) {
+    clearInterval(pollingInterval.current);
+  }
+  
+  // Apenas remover da lista de usuários ativos (não remover da participação permanente)
+  if (currentPanel && userId) {
+    try {
+      await fetch(`${API_URL}/api/panels/${currentPanel.id}/users/${userId}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      console.error('Erro ao remover usuário:', err);
     }
-    
-    // Remover usuário ao sair (tanto da tabela active_users quanto panel_participants)
-    if (currentPanel && userId) {
-      try {
-        // Remover da lista de usuários ativos
-        await fetch(`${API_URL}/api/panels/${currentPanel.id}/users/${userId}`, {
-          method: 'DELETE'
-        });
-        
-        // Remover da lista de participantes (novo endpoint)
-        await removeUserFromPanel(currentPanel.id, userId);
-      } catch (err) {
-        console.error('Erro ao remover usuário:', err);
-      }
-    }
-    
-    setCurrentPanel(null);
-    setPosts([]);
-    setUserName('');
-    setPanelType('');
-    setPanelName('');
-    setPanelCode('');
-    setPanelPassword('');
-    setJoinPassword('');
-    setRequirePassword(false);
-    setRequiresPasswordCheck(false);
-    setActiveUsers([]);
-    setBorderColor('');
-    setBackgroundColor('');
-    setShowExitConfirm(false);
-    setShowMyPanels(false);
-    setCurrentScreen('home');
-    setError('');
-    setUserPanelCount(0);
-  };
+  }
+  
+  setCurrentPanel(null);
+  setPosts([]);
+  setPanelType('');
+  setPanelName('');
+  setPanelCode('');
+  setPanelPassword('');
+  setJoinPassword('');
+  setRequirePassword(false);
+  setRequiresPasswordCheck(false);
+  setActiveUsers([]);
+  setBorderColor('');
+  setBackgroundColor('');
+  setShowExitConfirm(false);
+  setShowMyPanels(false);
+  setCurrentScreen('home');
+  setError('');
+  setUserPanelCount(0);
+};
 
   const goToHome = () => {
-    exitPanel();
-  };
+  exitPanel();
+};
+// Função para sair permanentemente do painel (remove da participação)
+const exitPanelPermanently = async () => {
+  if (pollingInterval.current) {
+    clearInterval(pollingInterval.current);
+  }
+  
+  // Remover usuário permanentemente (tanto da lista ativa quanto da participação)
+  if (currentPanel && userId) {
+    try {
+      // Remover da lista de usuários ativos
+      await fetch(`${API_URL}/api/panels/${currentPanel.id}/users/${userId}`, {
+        method: 'DELETE'
+      });
+      
+      // Remover da lista de participantes (remoção permanente)
+      await removeUserFromPanel(currentPanel.id, userId);
+    } catch (err) {
+      console.error('Erro ao remover usuário:', err);
+    }
+  }
+  
+  setCurrentPanel(null);
+  setPosts([]);
+  setPanelType('');
+  setPanelName('');
+  setPanelCode('');
+  setPanelPassword('');
+  setJoinPassword('');
+  setRequirePassword(false);
+  setRequiresPasswordCheck(false);
+  setActiveUsers([]);
+  setBorderColor('');
+  setBackgroundColor('');
+  setShowExitConfirm(false);
+  setShowMyPanels(false);
+  setCurrentScreen('home');
+  setError('');
+  setUserPanelCount(0);
+};
 
   // Tela do painel
   const panelGradient = currentPanel.type === 'couple' ? GRADIENTS.panel_couple : GRADIENTS.panel_friends;
@@ -1429,10 +1469,10 @@ export default function StickyNotesApp() {
                 Cancelar
               </button>
               <button
-                onClick={exitPanel}
+                onClick={exitPanelPermanently}
                 className="flex-1 px-4 py-3 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors font-medium"
               >
-                Sair
+               Sair
               </button>
             </div>
           </div>
